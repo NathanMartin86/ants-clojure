@@ -4,11 +4,40 @@
            [javafx.fxml FXMLLoader]
            [javafx.stage Stage]
            [javafx.scene Scene]
-           [javafx.animation AnimationTimer])
+           [javafx.animation AnimationTimer]
+           (javafx.scene.paint Color))
   (:gen-class :extends javafx.application.Application))
 
 (def width 800)
 (def height 600)
+(def ant-count 100)
+(def ants (atom nil)) ; atom allows you to store a mutable container
+(def last-timestamp (atom 0))
+
+(defn create-ants []
+  (for [i (range 0 ant-count)]
+    {:x (rand-int width)
+     :y (rand-int height)}))
+
+(defn random-step []
+  (- (* 2 (rand)) 1))
+
+(defn move-ant [ant]
+  (Thread/sleep 1)
+  (assoc ant :x (+ (random-step) (:x ant))
+             :y (+ (random-step) (:y ant))))
+
+(defn draw-ants [context]
+  (.clearRect context 0 0 width height)                     ;clearing the page of old stuff
+  (doseq [ant (deref ants)]                                ;pulling stuff out of atom with deref
+    (.setFill context Color/BLACK)                          ;setting the color
+    (.fillOval context (:x ant) (:y ant) 5 5 )))
+
+(defn fps [now]
+  (let [diff (- now (deref last-timestamp))
+        diff-seconds (/ diff 1000000000)]
+    (int (/ 1 diff-seconds))))
+
 
 (defn -start [app ^Stage stage]
   (let [root (FXMLLoader/load (resource "main.fxml"))
@@ -18,7 +47,12 @@
         context (.getGraphicsContext2D canvas)
         timer (proxy [AnimationTimer] []
                 (handle [now]
+                  (.setText fps-label (str (fps now)))
+                  (reset! last-timestamp now)
+                  (reset! ants (pmap move-ant (deref ants)))
+                  (draw-ants context)
                   ))]
+    (reset! ants (create-ants))
     (doto stage
       (.setTitle "Ants")
       (.setScene scene)
